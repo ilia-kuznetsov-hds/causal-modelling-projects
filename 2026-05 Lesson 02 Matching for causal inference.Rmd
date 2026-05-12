@@ -1,0 +1,74 @@
+---
+title: "Statistical Modelling Cheatsheet"
+output: html_notebook
+---
+
+
+Loads the MatchIt package and previews the built-in lalonde dataset — a classic dataset in causal inference from Robert LaLonde's 1986 study on the effect of a job training program (treat) on earnings (re78).
+
+```{r}
+if (!requireNamespace("MatchIt", quietly = TRUE)) {
+    install.packages("MatchIt")
+}
+
+library(MatchIt)
+head(lalonde)
+```
+
+
+
+## Prematching balance check
+
+Runs a bivariate comparison of each covariate (age, educ, race, married, nodegree, re74, re75) across the two treatment groups (treat = 0 vs treat = 1). 
+
+https://cran.r-project.org/web/packages/compareGroups/vignettes/compareGroups_vignette.html
+
+```{r}
+library(compareGroups)
+comp <- compareGroups(treat ~ age + educ + race + married + nodegree + re74 + re75, data = lalonde)
+
+createTable(comp, show.p.overall = FALSE)
+
+```
+
+If the treated and control groups differ substantially on covariates, it signals confounding, motivating the use of methods like propensity score matching, IPW, or CEM to achieve balance.
+
+We can use the matchit() function from the MatchIt package to matche treated individuals to controls with similar background characteristics.
+
+```{r}
+set.seed(54321) # For reproducibility
+match <- matchit(treat ~ age + educ + race + married + nodegree + re74 + re75,
+                  method = 'nearest',
+                  distance = 'glm',
+                  ratio = 1,
+                  data = lalonde)
+
+```
+
+This code implements 1:1 propensity score matching using the nearest neighbour algorithm. To check the success of the matching we can use the cobalt package to compare the balance of background characteristics before and after matching.
+
+```{r}
+cobalt::love.plot(match)
+
+```
+
+The love plot shows the mean differences between treated and control samples before and after matching. After matching (i.e. the adjusted sample) the mean differences are closer to 0, indicating that the balance is improved.
+
+Compare results in the matched and un matched dataset.
+
+```{r}
+# Extract the matched data
+lalondeMatched <- match.data(match)
+
+# Fit models in the raw and matched data
+m_raw <- lm(re78 ~ treat, data = lalonde)
+m_adjusted <- lm(re78 ~ treat, data = lalondeMatched)
+
+# Compare the model estimates
+sjPlot::tab_model(m_raw, m_adjusted, digits=0, show.p = FALSE, show.r2 = FALSE, dv.labels = c("Model 1: Original data", "Model 2: Matched data"))
+
+```
+
+The sign reversal from -635 to +894 is a textbook demonstration of confounding bias — without adjustment, naive comparison gave the wrong answer entirely. Matching recovers a more plausible treatment effect by ensuring the backdoor paths (Race, Age, Past earnings from DAG) are blocked.
+
+

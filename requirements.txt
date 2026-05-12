@@ -1,0 +1,7 @@
+Package==Version
+rmarkdown==2.31
+MatchIt==4.7.2
+compareGroups==4.10.2
+cobalt==4.6.2
+sjPlot==2.9.0
+renv==1.2.2
