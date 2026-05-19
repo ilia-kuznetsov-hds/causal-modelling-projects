@@ -2,6 +2,13 @@ Package==Version
 rmarkdown==2.31
 MatchIt==4.7.2
 compareGroups==4.10.2
+ggdag==0.2.13
+ggplot2==4.0.3
 cobalt==4.6.2
 sjPlot==2.9.0
+dplyr==1.2.1
+ggpubr==0.6.3
+knitr==1.51
+lme4==2.0-1
+nlme==3.1-169
 renv==1.2.2
