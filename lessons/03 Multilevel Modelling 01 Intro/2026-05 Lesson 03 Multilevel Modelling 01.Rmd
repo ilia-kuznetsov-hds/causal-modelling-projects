@@ -1,0 +1,102 @@
+---
+title: "Multilevel Modelling 01"
+output: html_document
+date: "2026-05-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(lme4)
+library(nlme)
+library(ggplot2)
+library(dplyr)
+library(ggpubr)
+```
+
+
+MathAchieve dataset from the nlme package includes math test scores on 7,185 students clustered within 160 schools. The main outcome of interest is math test scores saved in the variable MathAch.
+
+```{r}
+data(MathAchieve)
+
+head(MathAchieve)
+
+```
+```{r}
+MathAchieve |> 
+  group_by(School) |> 
+  summarise(mean = mean(MathAch)) |> 
+  arrange(-mean) |> 
+  mutate(order = row_number()) |> 
+  ggplot(aes(x=order, y=mean)) + 
+    geom_point(fill='#158cba', color='white', shape=21, size=3) +
+    scale_x_continuous('School index') +
+    scale_y_continuous("Average Math Score", limits = c(0,20))
+
+```
+Average scores vary considerably by school.
+
+
+
+```{r}
+
+# Model 0
+lm0 <- lm(MathAch ~ SES, data = MathAchieve)
+
+# Model 1
+mlm1 <- lmer(MathAch ~ SES + (1 | School), data = MathAchieve)
+
+# Model 2
+mlm2 <- lmer(MathAch ~ SES + (1 + SES | School), data = MathAchieve)
+
+sjPlot::tab_model(lm0, mlm1, mlm2,
+                  show.ci = FALSE,
+                  show.p = FALSE,
+                  show.se = TRUE,
+                  show.r2 = FALSE,
+                  dv.labels = paste('Model', 0:2),
+                  digits = 1)
+
+
+
+```
+
+
+Model 0: when SES is 0 the average math score is 12.7, and a one-unit increase in SES increases the average math score by 3.2 points.
+
+
+```{r}
+
+df <- MathAchieve |> 
+  mutate(
+    p0 = predict(lm0),
+    p1 = predict(mlm1),
+    p2 = predict(mlm2)
+  )
+
+p0 <- ggplot(data = df) +
+  geom_point(aes(x=SES, y=MathAch), color = 'grey70', size=0.2) +
+  geom_line(aes(x=SES, y=p0), color = '#158cba', linewidth=1) +
+  scale_y_continuous("Math scores") + 
+  labs(title = 'Model 1')
+
+p1 <- p0 + 
+  geom_line(aes(x=SES, y=p1, group=School), color = '#7c13ba', linewidth=0.1) + 
+  labs(title = 'Model 2')
+
+p2 <- p0 +
+  geom_line(aes(x=SES, y=p2, group=School), color = '#7c13ba', linewidth=0.1) + 
+  labs(title = 'Model 3')
+
+# https://rpkgs.datanovia.com/ggpubr/reference/index.html
+ggpubr::ggarrange(p0, p1, p2, ncol = 3)
+
+
+```
+
+The traditional linear model (Model 1) simply fits a straight line representing the relationship between a child’s SES and Math test scores. 
+
+The random intercept model (Model 2) recognises the hierarchical structure in the data and effectively fits a separate regression line for each school. The slopes of these school-specific lines are all parallel, and the relationship between SES and school is not as strong as in Model 1.
+
+Model 3 relaxes the assumption that the relationship between SES and Math test scores is the same in each school. Now the slope of the fitted lines vary slightly for each school, although the relationship is generally positive.
